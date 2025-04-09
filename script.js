@@ -1,12 +1,11 @@
 let cachedQuestions = [];
-let responses = {}; // Stores answers for each questionNumber
+let responses = {};
 
-// Load the JSON data and initialize the quiz
 async function loadQuestions() {
     try {
         const response = await fetch('questions.json');
         cachedQuestions = await response.json();
-        renderPage(-1); // Start with the first page (index -1 for static page-1)
+        renderPage(-1);
     } catch (error) {
         console.error("Failed to load questions.json:", error);
     }
@@ -28,6 +27,7 @@ function renderPage(index) {
         const savedBehavior = responses[question.questionNumber]?.behavior || "";
         const savedComments = responses[question.questionNumber]?.comments || "";
         const savedSliderValue = responses[question.questionNumber]?.sliderValue || 50;
+        const savedStdDev = responses[question.questionNumber]?.standardDeviation || "";
 
         const questionDiv = document.createElement('div');
         questionDiv.className = 'page active dynamic-question';
@@ -74,6 +74,10 @@ function renderPage(index) {
                         <input type="checkbox" name="behavior_${question.questionNumber}" value="data not usable" ${savedBehavior === "data not usable" ? "checked" : ""}>
                         Data is not usable
                     </label>
+                    <div style="margin-top:10px">
+                        <label><b>Standard Deviation:</b></label>
+                        <input type="number" id="stddev_${question.questionNumber}" value="${savedStdDev}" step="0.01" style="width:100px;" ${savedBehavior === "data not usable" ? "disabled" : ""}>
+                    </div>
                 </div>
                 <div class="comments-section"style="padding-left:10%; width:400px">
                     <h3>Comments</h3>
@@ -89,6 +93,7 @@ function renderPage(index) {
 
         const slider = document.getElementById(`slider_${question.questionNumber}`);
         const sliderInput = document.getElementById(`slider_input_${question.questionNumber}`);
+        const stddevInput = document.getElementById(`stddev_${question.questionNumber}`);
         const radioButton = document.querySelector(`input[name="behavior_${question.questionNumber}"][value="data not usable"]`);
 
         slider.addEventListener('input', () => (sliderInput.value = slider.value));
@@ -98,9 +103,11 @@ function renderPage(index) {
             const isDisabled = event.target.checked;
             slider.disabled = isDisabled;
             sliderInput.disabled = isDisabled;
+            stddevInput.disabled = isDisabled;
             if (isDisabled) {
-                slider.value = 50; // Reset to default if disabled
+                slider.value = 50;
                 sliderInput.value = 50;
+                stddevInput.value = "";
             }
         });
     } else {
@@ -112,6 +119,7 @@ function saveAnswer(questionNumber) {
     const selectedBehavior = document.querySelector(`input[name="behavior_${questionNumber}"]:checked`);
     const slider = document.getElementById(`slider_${questionNumber}`);
     const commentInput = document.getElementById(`comments_${questionNumber}`);
+    const stddevInput = document.getElementById(`stddev_${questionNumber}`);
 
     if (!responses[questionNumber]) {
         responses[questionNumber] = {};
@@ -119,10 +127,12 @@ function saveAnswer(questionNumber) {
 
     if (selectedBehavior && selectedBehavior.value === "data not usable") {
         responses[questionNumber].behavior = "data not usable";
-        responses[questionNumber].sliderValue = ""; 
+        responses[questionNumber].sliderValue = "";
+        responses[questionNumber].standardDeviation = "";
     } else {
-        responses[questionNumber].behavior = slider ? slider.value : ""; 
+        responses[questionNumber].behavior = slider ? slider.value : "";
         responses[questionNumber].sliderValue = slider ? slider.value : "";
+        responses[questionNumber].standardDeviation = stddevInput ? stddevInput.value.trim() : "";
     }
 
     responses[questionNumber].comments = commentInput ? commentInput.value.trim() : "";
@@ -144,7 +154,7 @@ function submitForm() {
 
     Object.keys(responses).forEach(questionNumber => {
         const response = responses[questionNumber];
-        if (response.behavior || response.comments) {
+        if (response.behavior || response.comments || response.standardDeviation) {
             data.push({
                 Question: `Question_Number_${questionNumber}_Behavior`,
                 Answer: response.behavior || "No selection",
@@ -153,6 +163,11 @@ function submitForm() {
             data.push({
                 Question: `Question_Number_${questionNumber}_Comments`,
                 Answer: response.comments || "No comments",
+            });
+
+            data.push({
+                Question: `Question_Number_${questionNumber}_Standard_Deviation`,
+                Answer: response.standardDeviation || "N/A",
             });
         }
     });
@@ -177,24 +192,6 @@ function navigatePage(index) {
         renderPage(-2);
     } else {
         console.error(`Invalid navigation request. Index: ${index}`);
-    }
-}
-
-function addAutoSaveListeners(questionNumber) {
-    document.querySelectorAll(`input[name="behavior_${questionNumber}"]`).forEach(input => {
-        input.addEventListener('change', () => saveAnswer(questionNumber));
-    });
-
-    const commentInput = document.getElementById(`comments_${questionNumber}`);
-    if (commentInput) {
-        commentInput.addEventListener('input', () => saveAnswer(questionNumber));
-    }
-
-    const slider = document.getElementById(`slider_${questionNumber}`);
-    const sliderInput = document.getElementById(`slider_input_${questionNumber}`);
-    if (slider && sliderInput) {
-        slider.addEventListener('input', () => saveAnswer(questionNumber));
-        sliderInput.addEventListener('input', () => saveAnswer(questionNumber));
     }
 }
 
